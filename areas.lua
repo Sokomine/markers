@@ -1,4 +1,6 @@
 
+-- TODO: offer teleport button?
+
 -- taken from mobf
 local COLOR_RED   = "#FF0000";
 local COLOR_GREEN = "#00FF00";
@@ -127,8 +129,30 @@ markers.get_area_list_formspec = function( player, mode, pos, mode_data, selecte
       and areas.areas[ id_list[ selected ]] ) then
 
       local this_area = areas.areas[ id_list[ selected ]];
+
+      local subareas = {};
+      for i,v in pairs( areas.areas ) do
+         if( v.parent and v.parent == id_list[ selected ]) then
+            table.insert( subareas, i );
+         end
+      end
+
       formspec = formspec..
                markers.show_compass_marker( 8.5, 3.0, false, pos, this_area.pos1, this_area.pos2 );
+
+
+      if( this_area.parent) then
+         formspec = formspec..
+               'button[8.0,0.5;2,0.5;show_parent;'.. 
+			minetest.formspec_escape( areas.areas[ this_area.parent ].name )..']';
+      end
+
+      if( #subareas > 0 ) then
+         formspec = formspec..
+               'button[8.0,1.0;2,0.5;list_subareas;'..
+                        minetest.formspec_escape( 'List subareas ('..tostring( #subareas )..')')..']';
+      end
+ 
 
       if( mode=='player' ) then
          formspec = formspec..
@@ -139,6 +163,7 @@ markers.get_area_list_formspec = function( player, mode, pos, mode_data, selecte
                'button[8.0,1.5;2,0.5;list_player_areas;'..
 			minetest.formspec_escape( this_area.owner..'\'s areas')..']';
       end
+
    end
 
    -- we need to remember especially the id_list - else it would be impossible to know what the
@@ -174,7 +199,7 @@ markers.get_area_desc_formspec = function( id, player, pos )
 
    -- show some buttons only if area is owned by the player
    local is_owner  = false;
-   -- TODO: offer same view/options for players with the appropriate privs?
+
    if( this_area.owner == pname ) then
       is_owner     = true;
    end
@@ -182,9 +207,6 @@ markers.get_area_desc_formspec = function( id, player, pos )
    local formspec  = 'size[10,9]'..
 	'label[2.5,0.0;Area information and management]'..
 	'button_exit[4.7,7.0;1,0.5;abort;OK]';
-
--- TODO: BUTTON change_owner
-
 
    -- general information about the area
    formspec = formspec..
@@ -201,10 +223,10 @@ markers.get_area_desc_formspec = function( id, player, pos )
    -- these functions are only available to the owner of the area
    if( is_owner ) then
       formspec = formspec..
+        'button_exit[8.0,0.0;2,0.5;change_owner;Change owner]'..
         'button_exit[8.0,1.0;2,0.5;delete;Delete]'..
         'button_exit[8.0,1.5;2,0.5;rename;Rename]'..
         'button_exit[8.0,2.0;2,0.5;list_player_areas;My areas]';
---        'button_exit[8.0,2.0;2,0.5;change_owner;Change owner]'; -- TODO: place that menu button somewhere
 
    -- subareas of own areas can be deleted (but not renamed)
    elseif( not( is_owner )
@@ -219,6 +241,16 @@ markers.get_area_desc_formspec = function( id, player, pos )
    else
       formspec = formspec..
         'button_exit[8.0,2.0;2,0.5;list_player_areas;Player\'s areas]';
+   end
+
+
+   -- players with the areas priv get an extra menu
+   if( minetest.check_player_privs(pname, {areas=true})) then
+      formspec = formspec..
+              'label[8.0,6.0;Admin commands:]'..
+        'button_exit[8.0,6.5;2,0.5;change_owner;Change owner]'..
+        'button_exit[8.0,7.0;2,0.5;delete;Delete]'..
+        'button_exit[8.0,7.5;2,0.5;rename;Rename]';
    end
 
 
@@ -400,15 +432,16 @@ end
 -- formspec input needs to be handled diffrently
 markers.form_input_handler_areas = function( player, formname, fields)
 
+   local pname = player:get_player_name();
 
    if( formname ~= "markers:info"
       or not( player )
-      or not(  markers.menu_data_by_player[ player:get_player_name() ] )) then
+      or not(  markers.menu_data_by_player[ pname ] )) then
    
       return false;
    end
   
-   local menu_data = markers.menu_data_by_player[ player:get_player_name() ];
+   local menu_data = markers.menu_data_by_player[ pname ];
    local formspec = '';
 
 
@@ -416,7 +449,7 @@ markers.form_input_handler_areas = function( player, formname, fields)
    if( fields.rename 
           and menu_data.selected
           and areas.areas[ menu_data.selected ]
-          and areas.areas[ menu_data.selected ].owner == player:get_player_name() ) then
+          and areas.areas[ menu_data.selected ].owner == pname ) then
    
       local area = areas.areas[ menu_data.selected ];
       if( not( area.name )) then
@@ -426,8 +459,9 @@ markers.form_input_handler_areas = function( player, formname, fields)
 
    elseif( fields.rename_new_name 
           and menu_data.selected
-          and areas.areas[ menu_data.selected ]
-          and areas.areas[ menu_data.selected ].owner == player:get_player_name() ) then
+          and  areas.areas[ menu_data.selected ]
+          and ((areas.areas[ menu_data.selected ].owner == pname ) 
+            or minetest.check_player_privs(pname, {areas=true}))) then
    
       local area = areas.areas[ menu_data.selected ];
 
@@ -435,39 +469,72 @@ markers.form_input_handler_areas = function( player, formname, fields)
       areas.areas[ menu_data.selected ].name = fields.rename_new_name;
       areas:save();
 
-      minetest.chat_send_player( area.owner, 'Area successfully renamed.');
+      minetest.chat_send_player( pname, 'Area successfully renamed.');
       -- shwo the renamed area
       formspec = markers.get_area_desc_formspec( menu_data.selected, player, menu_data.pos );
  
 
    
+   -- change owner the area
+   elseif( fields.change_owner
+          and menu_data.selected
+          and areas.areas[ menu_data.selected ] ) then
+   
+      -- there are no checks here - those happen when the area is transferred
+      local area = areas.areas[ menu_data.selected ];
+      formspec = 'field[change_owner_name;Give area \"'..minetest.formspec_escape( area.name )..'\" to player:;-enter name of NEW OWNER-]';
+
+   elseif( fields.change_owner_name
+          and menu_data.selected
+          and areas.areas[ menu_data.selected ] ) then
+
+      local area = areas.areas[ menu_data.selected ];
+
+      -- only own areas can be transfered to another player (or if the areas priv is there)
+      if( area.owner ~= pname 
+        and not( minetest.check_player_privs(pname, {areas=true}))) then
+ 
+         minetest.chat_send_player( pname, 'Permission denied. You do not own the area.');
+
+      elseif( not( areas:player_exists( fields.change_owner_name ))) then
+
+         minetest.chat_send_player( pname, 'That player does not exist.');
+
+      else
+         minetest.chat_send_player( pname, 'Your area '..tostring( area.name )..' has been transfered to '..tostring( fields.change_owner_name )..'.');
+   -- TODO: implement change_owner 
+      end
+
+      formspec = markers.get_area_desc_formspec( menu_data.selected, player, menu_data.pos );
+
+
    -- add an owner to the entire area
    elseif( fields.add_owner
           and menu_data.selected
           and areas.areas[ menu_data.selected ]
-          and areas.areas[ menu_data.selected ].owner == player:get_player_name() ) then
+          and areas.areas[ menu_data.selected ].owner == pname ) then
    
       local area = areas.areas[ menu_data.selected ];
       formspec = 'field[add_owner_name;Grant access to area \"'..minetest.formspec_escape( area.name )..'\" to player:;-enter player name-]';
 
    elseif( fields.add_owner_name 
               -- the player has to own the area already; we need a diffrent name here
-          and fields.add_owner_name ~= player:get_player_name()
+          and fields.add_owner_name ~= pname
           and menu_data.selected
           and areas.areas[ menu_data.selected ]
-          and areas.areas[ menu_data.selected ].owner == player:get_player_name() ) then
+          and areas.areas[ menu_data.selected ].owner == pname ) then
 
       local area = areas.areas[ menu_data.selected ];
 
       -- does the player exist?
       if( not( areas:player_exists( fields.add_owner_name ))) then
-         minetest.chat_send_player( area.owner, 'That player does not exist.');
+         minetest.chat_send_player( pname, 'That player does not exist.');
          -- show the formspec
          formspec = markers.get_area_desc_formspec( menu_data.selected, player, menu_data.pos );
 
       else
          -- log the creation of the new area
-         minetest.log("action", player:get_player_name().." runs /add_owner through the markers-mod. Owner = "..fields.add_owner_name..
+         minetest.log("action", pname.." runs /add_owner through the markers-mod. Owner = "..fields.add_owner_name..
                                 " AreaName = "..area.name.." ParentID = "..menu_data.selected..
                                 " StartPos = "..area.pos1.x..","..area.pos1.y..","..area.pos1.z..
                                 " EndPos = "  ..area.pos2.x..","..area.pos2.y..","..area.pos2.z)
@@ -481,9 +548,9 @@ markers.form_input_handler_areas = function( player, formname, fields)
                                 "You have been granted control over area #"..
                                 new_id..". Type /list_areas to show your areas.")
 
-         minetest.chat_send_player( area.owner, 'The player may now build and dig in your area.');
+         minetest.chat_send_player( pname, 'The player may now build and dig in your area.');
          -- shwo the new area
-         markers.menu_data_by_player[ player:get_player_name() ].selected = new_id;
+         markers.menu_data_by_player[ pname ].selected = new_id;
          formspec = markers.get_area_desc_formspec( new_id, player, menu_data.pos );
       end
 
@@ -497,14 +564,15 @@ markers.form_input_handler_areas = function( player, formname, fields)
       local area = areas.areas[ menu_data.selected ];
 
       -- a player can only delete own areas or subareas of own areas
-      if( area.owner ~= player:get_player_name() 
+      if( area.owner ~= pname 
         and not(     area.parent 
                  and areas.areas[ area.parent ] 
                  and areas.areas[ area.parent ].owner
-                 and areas.areas[ area.parent ].owner == player:get_player_name() )) then
+                 and areas.areas[ area.parent ].owner == pname )
+        and not( minetest.check_player_privs(pname, {areas=true}))) then
  
-         minetest.chat_send_player( area.owner, 'Permission denied. You own neither the area itshelf nor its parent area.');
-         -- shwo the renamed area
+         minetest.chat_send_player( pname, 'Permission denied. You own neither the area itshelf nor its parent area.');
+         -- shwo the area where the renaming failed
          formspec = markers.get_area_desc_formspec( menu_data.selected, player, menu_data.pos );
 
       else
@@ -530,30 +598,31 @@ markers.form_input_handler_areas = function( player, formname, fields)
       end
 
       -- a player can only delete own areas or subareas of own areas
-      if( area.owner ~= player:get_player_name() 
+      if( area.owner ~= pname 
         and not(     area.parent 
                  and areas.areas[ area.parent ] 
                  and areas.areas[ area.parent ].owner
-                 and areas.areas[ area.parent ].owner == player:get_player_name() )) then
+                 and areas.areas[ area.parent ].owner == pname )
+        and not( minetest.check_player_privs(pname, {areas=true}))) then
  
-         minetest.chat_send_player( player:get_player_name(), 'Permission denied. You own neither the area itshelf nor its parent area.');
+         minetest.chat_send_player( pname, 'Permission denied. You own neither the area itshelf nor its parent area.');
          -- shwo the renamed area
          formspec = markers.get_area_desc_formspec( menu_data.selected, player, menu_data.pos );
 
       -- avoid accidents
       elseif( fields.delete_confirm ~= 'YES' ) then
-         minetest.chat_send_player( player:get_player_name(), 'Delition of area \"'..tostring( area.name )..'\" (owned by '..old_owner..') aborted.');
+         minetest.chat_send_player( pname, 'Delition of area \"'..tostring( area.name )..'\" (owned by '..old_owner..') aborted.');
          formspec = markers.get_area_desc_formspec( menu_data.selected, player, menu_data.pos );
 
       -- only areas without subareas can be deleted
       elseif( #subareas > 0 ) then 
-         minetest.chat_send_player( player:get_player_name(), 'The area has '..tostring( #subareas )..' subarea(s). Please delete those first!');
+         minetest.chat_send_player( pname, 'The area has '..tostring( #subareas )..' subarea(s). Please delete those first!');
          formspec = markers.get_area_desc_formspec( menu_data.selected, player, menu_data.pos );
 
       else
 
          -- TODO: really delete
-         minetest.chat_send_player( player:get_player_name(), 'Area \"'..tostring( area.name )..'\" (owned by '..old_owner..') deleted.');
+         minetest.chat_send_player( pname, 'Area \"'..tostring( area.name )..'\" (owned by '..old_owner..') deleted.');
          -- show the list of areas owned by the previous owner
          formspec = markers.get_area_list_formspec( player, 'player',   menu_data.pos, old_owner, nil );
       end
@@ -615,6 +684,6 @@ markers.form_input_handler_areas = function( player, formname, fields)
       return false;
    end
 
-   minetest.show_formspec( player:get_player_name(), "markers:info", formspec )
+   minetest.show_formspec( pname, "markers:info", formspec )
    return true;
 end

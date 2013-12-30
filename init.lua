@@ -21,6 +21,8 @@ markers.MAX_HEIGHT   = 100;
 markers.MAX_SIZE     = 1024; -- 32m * 32m = 1024 m^2
 
 
+dofile(minetest.get_modpath("markers").."/areas.lua");
+
 dofile(minetest.get_modpath("markers").."/marker_stone.lua");
 
 -- TODO: dofile land_title_register.lua
@@ -499,6 +501,7 @@ markers.marker_on_receive_fields = function(pos, formname, fields, sender)
    local canAdd, errMsg = areas:canPlayerAddArea(pos1, pos2, name)
    if not canAdd then
       minetest.chat_send_player(name, "You can't protect that area: "..errMsg)
+      minetest.show_formspec( name, "markers:mark", markers.get_marker_formspec(sender, pos, errMsg));
       return
    end
 
@@ -533,6 +536,24 @@ markers.form_input_handler = function( player, formname, fields)
          markers.marker_on_receive_fields(pos, formname, fields, player);
       end
       return true;
+
+
+   elseif( formname == "markers:info"
+      and player
+      and markers.menu_data_by_player[ player:get_player_name() ] ) then
+
+      local res = markers.form_input_handler_areas( player, formname, fields);
+      if( res ) then
+         return true;
+      end
+  
+      -- TODO
+--      minetest.chat_send_player('singleplayer','MARKERS:INFO WITH '..minetest.serialize( fields ));
+
+   else
+      -- TODO
+--      minetest.chat_send_player('singleplayer','YOU CALLED '..tostring( formname )..' WITH '..minetest.serialize( fields ));
+
    end
    
    return false;

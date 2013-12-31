@@ -28,7 +28,7 @@ end
 
 
 
--- mode: can be pos, player, all, subarea
+-- mode: can be pos, player, all, subarea, main_areas
 -- mode_data: content depends on mode
 -- selected: display information about the area the player single-clicked on
 markers.get_area_list_formspec = function( player, mode, pos, mode_data, selected )
@@ -79,6 +79,18 @@ markers.get_area_list_formspec = function( player, mode, pos, mode_data, selecte
             table.insert( id_list, id );
          end
       end
+
+   -- show only areas that do not have parents
+   elseif( mode=='main_areas' ) then
+      title  = 'All main areas:';
+      tlabel = '*all main areas*';
+      for id, area in pairs(areas.areas) do
+
+         if( not( area.parent )) then
+            table.insert( id_list, id );
+         end
+      end
+ 
 
    elseif( mode=='all' ) then
       title  = 'All areas:'; 
@@ -165,6 +177,9 @@ markers.get_area_list_formspec = function( player, mode, pos, mode_data, selecte
       end
 
    end
+
+   formspec = formspec..
+               'button[8.0,8.5;2,0.5;list_main_areas;List all main areas]';
 
    -- we need to remember especially the id_list - else it would be impossible to know what the
    -- player selected
@@ -501,8 +516,13 @@ markers.form_input_handler_areas = function( player, formname, fields)
          minetest.chat_send_player( pname, 'That player does not exist.');
 
       else
+         -- actually change the owner
+         areas.areas[ menu_data.selected ].owner = fields.change_owner_name;
+         areas:save()
+
          minetest.chat_send_player( pname, 'Your area '..tostring( area.name )..' has been transfered to '..tostring( fields.change_owner_name )..'.');
-   -- TODO: implement change_owner 
+
+         minetest.chat_send_player( fields.change_owner_name, pname..'" has given you control over an area.')
       end
 
       formspec = markers.get_area_desc_formspec( menu_data.selected, player, menu_data.pos );
@@ -621,8 +641,10 @@ markers.form_input_handler_areas = function( player, formname, fields)
 
       else
 
-         -- TODO: really delete
          minetest.chat_send_player( pname, 'Area \"'..tostring( area.name )..'\" (owned by '..old_owner..') deleted.');
+         -- really delete
+         areas:remove( menu_data.selected, false ); -- no recursive delete
+         areas:save();
          -- show the list of areas owned by the previous owner
          formspec = markers.get_area_list_formspec( player, 'player',   menu_data.pos, old_owner, nil );
       end
@@ -651,6 +673,10 @@ markers.form_input_handler_areas = function( player, formname, fields)
       formspec = markers.get_area_list_formspec( player, 'subareas', menu_data.pos, menu_data.selected, nil );
 
 
+   elseif( fields.list_main_areas ) then
+
+      formspec = markers.get_area_list_formspec( player, 'main_areas', menu_data.pos, nil, nil );
+          
    elseif( fields.list_areas_at
           and menu_data.pos ) then
 

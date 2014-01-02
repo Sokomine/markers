@@ -1,81 +1,8 @@
 
 
-
-
-markers.get_area_info = function(pos)
-   local found = {}
-   for nr, area in pairs(areas.areas) do
-      if pos.x >= area.pos1.x and pos.x <= area.pos2.x and
-         pos.y >= area.pos1.y and pos.y <= area.pos2.y and
-         pos.z >= area.pos1.z and pos.z <= area.pos2.z then
-              area[ 'id' ] = nr;
-              table.insert( found, area )
-      end
-   end
-   return found;
-end
-
-
-
-markers.get_area_info_as_text = function(pos, name)
-
-   local text = 'Checking '..minetest.pos_to_string( pos )..'. Owned by: ';
-
-   local found_areas = markers.get_area_info( pos );
---minetest.chat_send_player('singleplayer', 'Areas FOUND: '..minetest.serialize( found_areas ));
-
-   if( not( found_areas ) or #found_areas < 1 ) then
-      minetest.chat_send_player( name, text..'-nobody- (unprotected)');
-      return;
-   end
-
-   local parent = {};
-   for _, area in pairs( found_areas ) do
-      if( not( area[ 'parent' ] )) then 
-         parent = area;
-         minetest.chat_send_player(name, '  '..areas:toString( area['id']))
-      end
-   end
-
-   if( #found_areas > 1 ) then
-      minetest.chat_send_player(name, '  Sub-owners of entire area:');
-   
-      for _, area in pairs( found_areas ) do
-         if( area[ 'parent' ]==parent['nr'] ) then
-            if(  parent.pos1.x == area.pos1.x
-             and parent.pos1.y == area.pos1.y
-             and parent.pos1.z == area.pos1.z
-             and parent.pos2.x == area.pos2.x
-             and parent.pos2.y == area.pos2.y
-             and parent.pos2.z == area.pos2.z) then 
-
-               minetest.chat_send_player(name, '    '..areas:toString( area['id']))
-            end    
-         end
-      end
-   end
-
-
-   if( #found_areas > 1 ) then
-      minetest.chat_send_player(name, '  Sub-owners:');
-   
-      for _, area in pairs( found_areas ) do
-         if( area[ 'parent' ] ) then 
-            minetest.chat_send_player(name, '    '..areas:toString( area['id']))
-         end
-      end
-   end
-
-    minetest.chat_send_player(name, 'ALL owners:');
-   for _, area in pairs( found_areas ) do
-      minetest.chat_send_player(name, '    '..areas:toString( area['id']))
-   end
-end
-
-
 minetest.register_tool( "markers:land_title_register",
 {
-    description = "Land title register. Left-click with it to get information about the land owner or to protect your own ground.",
+    description = "Land title register. Left-click with it to get information about who owns the land you clicked on.",
     groups = {}, 
     inventory_image = "default_book.png", -- TODO
     wield_image = "",
@@ -106,12 +33,12 @@ minetest.register_tool( "markers:land_title_register",
        
        if( not( pos ) or not( pos.x )) then
           minetest.chat_send_player( name, "Position not found.");
-          return;
+          return itemstack;
        end
 
-       local found_areas = markers.get_area_info_as_text( pos, placer:get_player_name() );
--- TODO
---       inspector.search_node( pos.x, pos.y, pos.z, name );
+       -- this function shows the formspec with the information about the area(s)
+       markers.show_marker_stone_formspec( placer, pos );
+
        return itemstack; -- nothing consumed, nothing changed
     end,
      
@@ -127,13 +54,21 @@ minetest.register_tool( "markers:land_title_register",
        
        if( not( pos ) or not( pos.x )) then
           minetest.chat_send_player( name, "Position not found.");
-          return;
+          return itemstack;
        end
--- TODO
---       inspector.search_node( pos.x, pos.y, pos.z, name );
-       local found_areas = markers.get_area_info_as_text( pos, placer:get_player_name() );
+
+       -- this function shows the formspec with the information about the area(s)
+       markers.show_marker_stone_formspec( placer, pos );
 
        return itemstack; -- nothing consumed, nothing changed
     end,
 })
+
+
+minetest.register_craft({
+   output = "markers:land_title_register",
+   recipe = { { "markers:mark" },
+              { "markers:stone" },
+              { "default:book"}
+             } });
 

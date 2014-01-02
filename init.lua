@@ -25,8 +25,7 @@ dofile(minetest.get_modpath("markers").."/areas.lua");
 
 dofile(minetest.get_modpath("markers").."/marker_stone.lua");
 
--- TODO: dofile land_title_register.lua
---dofile(minetest.get_modpath("markers").."/land_title_register.lua");
+dofile(minetest.get_modpath("markers").."/land_title_register.lua");
 
 
 -- returns the first area found

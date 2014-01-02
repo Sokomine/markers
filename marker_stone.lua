@@ -11,10 +11,7 @@ minetest.register_node("markers:stone", {
 
 	on_rightclick = function(pos, node, clicker)
 
-           minetest.show_formspec( clicker:get_player_name(), "markers:info",
-                markers.get_area_list_formspec( clicker, 'pos', pos, pos, nil ));
-         return;
-
+           markers.show_marker_stone_formspec( clicker, pos );
 	end,
 })
 

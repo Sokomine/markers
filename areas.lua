@@ -398,8 +398,8 @@ markers.show_compass_marker = function( col_offset, row_offset, with_text, pos, 
 		'image['..col_offset..','..row_offset..';1,1;markers_stone.png]'..
 		'label['..(col_offset-0.8)..','..(row_offset+0.05)..';'..tostring( pos.x - pos1.x         )..' m W]'..
 		'label['..(col_offset+1.0)..','..(row_offset+0.05)..';'..tostring(         pos2.x - pos.x )..' m E]'..
-		'label['..(col_offset+0.1)..','..(row_offset-0.80)..';'..tostring( pos.z - pos1.z         )..' m N]'..
-		'label['..(col_offset+0.1)..','..(row_offset+0.80)..';'..tostring(         pos2.z - pos.z )..' m S]';
+		'label['..(col_offset+0.1)..','..(row_offset+0.80)..';'..tostring( pos.z - pos1.z         )..' m S]'..
+		'label['..(col_offset+0.1)..','..(row_offset-0.80)..';'..tostring(         pos2.z - pos.z )..' m N]';
 
    -- else show how far the area is away
    else
@@ -710,6 +710,124 @@ markers.form_input_handler_areas = function( player, formname, fields)
       return false;
    end
 
+
    minetest.show_formspec( pname, "markers:info", formspec )
    return true;
+end
+
+
+
+-- search the area at the given position pos that might be of most intrest to the player
+markers.show_marker_stone_formspec = function( player, pos )
+
+   local pname       = player:get_player_name();
+
+   -- this table stores the list the player may have selected from; at the beginning, there is no list 
+   if( not( markers.menu_data_by_player[ pname ]  )) then
+      markers.menu_data_by_player[ pname ] = {
+	  typ       = 'area_list',
+          mode      = 'main_areas',
+          pos       = pos,
+          mode_data = pos,
+          list      = {},
+
+	  selected  = nil,
+      };
+   end
+
+
+   local formspec        = '';
+
+   local found_areas     = {};
+   local min_area_size   = 100000000000;
+
+   for id, area in pairs(areas.areas) do
+      if( pos.x >= area.pos1.x and pos.x <= area.pos2.x and
+          pos.y >= area.pos1.y and pos.y <= area.pos2.y and
+          pos.z >= area.pos1.z and pos.z <= area.pos2.z )then
+
+         -- ignore y (height) value because some areas may go from bottom to top
+         local area_size = math.abs( area.pos2.x - area.pos1.x )
+                         * math.abs( area.pos2.z - area.pos1.z );
+
+         -- collect subareas that have the same size
+         if( area_size == min_area_size ) then
+            table.insert(found_areas, id );
+         -- we have found a smaller area - that is more intresting here
+         elseif( area_size <= min_area_size ) then
+            found_areas = {};
+            min_area_size = area_size;
+            table.insert(found_areas, id );
+         end
+      end
+   end
+
+   -- no areas found; display error message and selection menu
+   if(     #found_areas < 1 ) then
+
+      formspec = 'size[4,3]'..
+ 		'label[0.5,0.5;This position is not protected.]'..
+		     'button[1.0,1.5;2,0.5;list_main_areas;List all main areas]'..
+		'button_exit[3.0,1.5;1,0.5;abort;OK]';
+ 
+   -- found exactly one areaa - display it
+   elseif( #found_areas == 1 ) then
+
+      formspec = markers.get_area_desc_formspec( found_areas[ 1 ], player, pos );
+
+   -- found more than one area; we have saved only those with the smallest size
+   else
+
+      local own_area    = 0;
+      local parent_area = 0;
+      local upper_area  = 0;
+      for i,v in ipairs( found_areas ) do
+
+         local area = areas.areas[ v ];
+
+         -- owned by player?
+         if(          area.owner == pname ) then
+            own_area    = v;
+
+         -- parentless area?
+         elseif( not( area.parent )) then
+            parent_area = v;
+
+         -- the parent has diffrent coordinates?
+         elseif(      areas.areas[ area.parent ].pos1.x ~= area.pos1.x
+                   or areas.areas[ area.parent ].pos1.y ~= area.pos1.y
+                   or areas.areas[ area.parent ].pos1.z ~= area.pos1.z
+                   or areas.areas[ area.parent ].pos2.x ~= area.pos2.x
+                   or areas.areas[ area.parent ].pos2.y ~= area.pos2.y
+                   or areas.areas[ area.parent ].pos2.z ~= area.pos2.z ) then
+            upper_area = v;
+         end
+      end
+
+      -- the area owned by the player is most intresting
+      if(     own_area    > 0 ) then
+
+         formspec = markers.get_area_desc_formspec( own_area,    player, pos );
+
+      -- if the player owns none of these areas, show the topmost (parentless) area
+      elseif( parent_area > 0 ) then
+
+         formspec = markers.get_area_desc_formspec( parent_area, player, pos );
+
+      -- an area which has a parent with diffrent coordinates from its child may (or may not) be the
+      -- parent of all these subareas we've found here; there is no guarantee, but it's a best guess.
+      -- If it is not good enough, then the player can still search for himshelf.
+      elseif( upper_area  > 0 ) then
+
+         formspec = markers.get_area_desc_formspec( upper_area,  player, pos );
+
+      -- our superficial analysis of the structure of the areas failed; it is up to the player to
+      -- find out which of the candidates he is intrested in; we list them all
+      else
+
+        formspec = markers.get_area_list_formspec( player, 'pos', pos, pos, nil );
+      end
+   end
+
+   minetest.show_formspec( player:get_player_name(), "markers:info", formspec );
 end

@@ -335,6 +335,7 @@ markers.get_marker_formspec = function(player, pos, error_msg)
       for i=1,3 do
 
          if(not( ((n-i) == opposite )
+             or not(markers.positions[ name ][ n-i ] )
              or  ( markers.positions[ name ][ n-i ].x == coords[ 1 ].x
                and markers.positions[ name ][ n-i ].z == coords[ 2 ].z )
              or  ( markers.positions[ name ][ n-i ].x == coords[ 2 ].x

@@ -336,6 +336,9 @@ markers.get_marker_formspec = function(player, pos, error_msg)
 
          if(not( ((n-i) == opposite )
              or not(markers.positions[ name ][ n-i ] )
+	     or not( coords ) or not( coords[1]) or not( coords[2])
+	     or not(markers.positions[ name ] )
+	     or not(markers.positions[ name ][ n-i ] )
              or  ( markers.positions[ name ][ n-i ].x == coords[ 1 ].x
                and markers.positions[ name ][ n-i ].z == coords[ 2 ].z )
              or  ( markers.positions[ name ][ n-i ].x == coords[ 2 ].x
@@ -348,6 +351,9 @@ markers.get_marker_formspec = function(player, pos, error_msg)
 
       -- save data     
       meta:set_string( 'coords', minetest.serialize( coords ) );
+   end
+   if( not( coords ) or #coords < 2 or not( coords[1] ) or not( coords[2] )) then
+      return formspec_info.."Error: The last 4 markers\nyou placed do not form\na rectangle.]";
    end
 
    -- the coordinates are set; we may present an input form now

@@ -9,7 +9,7 @@ markers = {}
 markers.positions = {}
 
 -- store the positions of that many markers for each player (until server restart)
-markers.MAX_MARKERS  = 10;
+markers.MAX_MARKERS  = 50;
 
 -- the protection against digging of the marker by other players expires after this time
 markers.EXPIRE_AFTER = 60*60*24;

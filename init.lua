@@ -5,26 +5,9 @@
 
 markers = {}
 
--- stores up to 4 marker positions for each player
-markers.positions = {}
-
--- store the positions of that many markers for each player (until server restart)
-markers.MAX_MARKERS  = 50;
-
--- the protection against digging of the marker by other players expires after this time
-markers.EXPIRE_AFTER = 60*60*24;
-
--- self-protected areas can not get higher than 100 blocks
-markers.MAX_HEIGHT   = 100;
-
--- only areas up to this size (in square meters) can be protected
-markers.MAX_SIZE     = 1024; -- 32m * 32m = 1024 m^2
-
-
+dofile(minetest.get_modpath("markers").."/config.lua");
 dofile(minetest.get_modpath("markers").."/areas.lua");
-
 dofile(minetest.get_modpath("markers").."/marker_stone.lua");
-
 dofile(minetest.get_modpath("markers").."/land_title_register.lua");
 
 

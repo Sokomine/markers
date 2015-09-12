@@ -29,3 +29,8 @@ end
 
 -- for most cases, the default values ought to work
 --markers.AREA_RANGE   = 100000;
+
+if( io.open(minetest.get_worldpath().."/markers_settings.txt","r")) then
+	io.close()
+	dofile(minetest.get_worldpath().."/markers_settings.txt")
+end

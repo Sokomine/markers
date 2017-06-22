@@ -247,20 +247,20 @@ markers.get_marker_formspec = function(player, pos, error_msg)
    local name  = player:get_player_name();
 
    local formspec_info = "size[6,4]"..
-             "button_exit[2,2.5;1,0.5;abort;OK]"..
-             "textarea[1,1;4,2;info;Information;";
+             "button_exit[2.5,3.7;1,0.5;abort;OK]"..
+             "textarea[0.2,0;6,4;info;;"
    if( owner ~= nil and owner ~= '' and owner ~= name ) then
-      return formspec_info.."This marker\ncan only be used by\n"..tostring( owner )..", who\nplaced the markers.]";
+      return formspec_info.."This marker can only be used by "..tostring( owner )..", who placed the markers.]";
    end
 
    if( not( markers.positions[ name ]) or #markers.positions[name]<1) then
-      return formspec_info.."Information about the positions\nof your other markers\ngot lost.\nPlease dig and place\nyour markers again!]";
+      return formspec_info.."Information about the positions of your other markers got lost. Please dig and place your markers again!]";
    end
 
    local n = #markers.positions[ name ];
 
 	 if ( n < 2 ) then
-	   return formspec_info.."Please place 2 or more markers\n - at least one in each corner\n of your area first]";
+	   return formspec_info.."Please place 2 or more markers - at least one in each corner of your area first]";
    end
 
 
@@ -285,53 +285,45 @@ markers.get_marker_formspec = function(player, pos, error_msg)
 
     -- check if area is too large
     if( markers.MAX_SIZE < size ) then
-       return formspec_info.."Error: You can only protect\nareas of up to "..tostring( markers.MAX_SIZE ).."m^2.\n"..
-                             "Your marked area is "..tostring( size ).." m^2 large.]";
+       return formspec_info.."Error: You can only protect areas of up to "..tostring( markers.MAX_SIZE ).."m²."..
+                             " Your marked area is "..tostring( size ).." m² large.]";
     end
 
-    local formspec = 'size[10,7]'..
-               'label[0.5,1;The area you marked extends from]'..
-               'label[4.7,1;'..minetest.pos_to_string( coords[ 1 ] )..' to '..minetest.pos_to_string( coords[ 2 ] )..'.]'..
-               'label[4.7,1.5;It spans '..tostring( math.abs( coords[1].x - coords[2].x )+1 )..
-                               ' x '..tostring( math.abs( coords[1].z - coords[2].z )+1 )..
-                               ' = '..tostring( size )..' m^2.]';
+    local formspec =
+               'size[6,5.8]' ..
+               'label[0,0;Your area extends from ' ..
+                          minetest.colorize('#FFFF00', minetest.pos_to_string(coords[1])) ..
+                    ' to ' .. minetest.colorize('#FFFF00', minetest.pos_to_string(coords[2])) .. '.]' ..
+               'label[0,0.5;It spans '..tostring( math.abs( coords[1].x - coords[2].x )+1 )..
+                               ' x '..tostring( math.abs( coords[1].z - coords[2].z )+1 ) .. ' m' ..
+                               ' = '..tostring( size )..' m².]' ..
+                default.gui_bg_img
 
     -- display the error message (if there is any)
     if( error_msg ~= nil ) then
        formspec = formspec..
-                    'label[0.5,0.0;Error: ]'..
+                    'label[0,0.0;Error: ]'..
                     'textarea[5.0,0;4,1.5;info;;'..error_msg..']';
     end
 
     if( area and area['id'] ) then
        formspec =   formspec..
-                    'label[0.5,2.0;This is area number ]'..
-                    'label[4.7,2.0;'..tostring( area['id'] )..'.]'..
-                    'label[0.5,2.5;It is owned by ]'..
-                    'label[4.7,2.5;'..tostring( area['owner'] )..'.]'..
-                    'label[0.5,3.0;The area is called ]'..
-                    'label[4.7,3.0;'..tostring( area['name'] )..'.]'..
-                    "button_exit[2,6.0;2,0.5;abort;OK]";
+                    'label[0,1.5;Area number: ' .. minetest.colorize("#FFFF00", tostring(area['id'])) .. ']'..
+                    'label[0,2;Owned by: ' .. minetest.colorize("#FFFF00", tostring(area['owner'])) .. ']'..
+                    'label[0,2.5;Area name: ' .. minetest.colorize("#FFFF00", tostring(area['name'])) .. ']'..
+                    "button_exit[2,5.5;2,0.5;abort;OK]";
     else
        formspec =   formspec..
 --                    'label[0.5,2.0;Buying this area will cost you ]'..
 --                    'label[4.7,2.0;'..markers.calculate_area_price_text( coords[1], coords[2], name )..'.]'..
 
-                    'label[0.5,3.0;Your area ought to go..]'..
-                    'label[0.5,3.5;this many blocks up:]'..
-                    'field[5.0,4.0;1,0.5;add_height;;40]'..
-                    'label[6.0,3.5;(above '..coords[2].y..' )]'..
+                    'field[0.2,2.2;6,0.5;add_height;Area height above this position (min: ' .. coords[2].y .. ');40]'..
+                    'field[0.2,3.5;6,0.5;add_depth;Area depth below this position (min: ' .. coords[1].y .. ');10]'..
+                    'field[0.2,4.7;6,0.5;set_area_name;Area name;]'..
 
-                    'label[0.5,4.0;and this many blocks down:]'..
-                    'field[5.0,4.5;1,0.5;add_depth;;10]'..
-                    'label[6.0,4.0;(below '..coords[1].y..' )]'..
-
-                    'label[0.5,4.5;The area shall be named]'..
-                    'field[5.0,5.0;6,0.5;set_area_name;;please enter a name]'..
-
-                    "button_exit[2,6.0;2,0.5;abort;Abort]"..
+                    "button_exit[0.5,5.4;2.5,0.5;abort;Abort]"..
                     -- code the position in the "Buy area" field
-                    "button_exit[6,6.0;2,0.5;"..minetest.pos_to_string(pos)..";Protect area]";
+                    "button_exit[3,5.4;2.5,0.5;"..minetest.pos_to_string(pos)..";Protect area]";
     end
 
    return formspec;

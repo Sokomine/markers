@@ -51,8 +51,8 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
    -- expects a position in mode_data
    if(     mode=='pos' ) then
       -- title would be too long for a label
-      title  = 'All areas which contain position..';
-      tlabel = '<'..minetest.pos_to_string( mode_data )..'>:';
+      title  = 'All areas at position: ';
+      tlabel = minetest.colorize("#FFFF00", minetest.pos_to_string( mode_data ));
 
       for id, area in pairs(areas.areas) do
 
@@ -67,7 +67,7 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
    -- expects a playername in mode_data
    elseif( mode=='player' ) then
 
-      title  = 'All areas owned by player..';
+      title  = 'All areas owned by player...';
       tlabel = '<'..tostring( mode_data )..'>:';
 
       for id, area in pairs(areas.areas) do
@@ -80,7 +80,7 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
    -- expects an area_id in mode_data
    elseif( mode=='subareas' ) then
 
-      title  = 'All subareas of area..';
+      title  = 'All sub-areas of area...';
       tlabel = '<'..tostring( areas.areas[ mode_data ].name )..'> ['..tostring( mode_data )..']:';
 
       for id, area in pairs(areas.areas) do
@@ -92,8 +92,8 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
 
    -- show only areas that do not have parents
    elseif( mode=='main_areas' ) then
-      title  = 'All main areas withhin '..tostring( markers.AREA_RANGE )..' m:';
-      tlabel = '*all main areas*';
+      title  = 'Main areas (within '..tostring( markers.AREA_RANGE )..' m)';
+      tlabel = '[main areas]';
       for id, area in pairs(areas.areas) do
 
          if( not( area.parent )
@@ -110,8 +110,8 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
  
 
    elseif( mode=='all' ) then
-      title  = 'All areas withhin '..tostring( markers.AREA_RANGE )..' m:';
-      tlabel = '*all areas*';
+      title  = 'Areas (within '..tostring( markers.AREA_RANGE )..' m)';
+      tlabel = '[all areas]';
 
       for id, area in pairs(areas.areas) do
          if(  (   (area.pos1.x >= ppos.x-markers.AREA_RANGE and area.pos1.x <= ppos.x+markers.AREA_RANGE )
@@ -132,17 +132,16 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
    end
    table.sort(id_list, nearsorter)
 
-   local formspec = 'size[10,9]';
+   local formspec = 'size[10,8.5]';
 
    title  = minetest.formspec_escape( title );
    tlabel = minetest.formspec_escape( tlabel );
 
    formspec = formspec..
-	"label[0.5,0;"..title.."]"..
+	"label[0,0;"..title.."]"..
 	"label[4.7,0;"..tlabel.."]"..
-	"label[0.5,8.5;Doubleclick to select area.]"..
-	"label[4.7,8.5;Areas found: "..tostring( #id_list )..".]"..
-	"textlist[0.5,0.5;7,8;markers_area_list_selection;"; 
+	"label[0,8;Areas found: ".. minetest.colorize("#FFFF00", tostring(#id_list)) .."]"..
+	"textlist[0,0.7;7,7;markers_area_list_selection;"
 
    local liste = '';
    for i,v in ipairs( id_list ) do
@@ -180,18 +179,18 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
       end
 
       formspec = formspec..
-               markers.show_compass_marker( 8.5, 3.0, false, pos, this_area.pos1, this_area.pos2 );
+               markers.show_compass_marker( 8, 3.0, false, pos, this_area.pos1, this_area.pos2 );
 
 
       if( this_area.parent) then
          formspec = formspec..
-               'button[8.0,0.5;2,0.5;show_parent;'.. 
+               'button[3.15,8;4,0.5;show_parent;'.. 
 			minetest.formspec_escape( areas.areas[ this_area.parent ].name )..']';
       end
 
       if( #subareas > 0 ) then
          formspec = formspec..
-               'button[8.0,1.0;2,0.5;list_subareas;'..
+               'button[3.15,8;4,0.5;list_subareas;'..
                         minetest.formspec_escape( 'List subareas ('..tostring( #subareas )..')')..']';
       end
  
@@ -202,14 +201,15 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
 			minetest.formspec_escape( this_area.owner..'\'s areas')..']';
       else
          formspec = formspec..
-               'button[8.0,1.5;2,0.5;list_player_areas;'..
+               'button[3.15,8;4,0.5;list_player_areas;'..
 			minetest.formspec_escape( this_area.owner..'\'s areas')..']';
       end
 
    end
 
    formspec = formspec..
-               'button[8.0,8.5;2,0.5;list_main_areas;List all main areas]';
+               'button[3.15,8;4,0.5;list_main_areas;List all main areas]' ..
+                default.gui_bg_img
 
    -- we need to remember especially the id_list - else it would be impossible to know what the
    -- player selected
@@ -249,29 +249,27 @@ markers.get_area_desc_formspec = function( id, player, pos )
       is_owner     = true;
    end
 
-   local formspec  = 'size[10,9]'..
-	'label[2.5,0.0;Area information and management]'..
-	'button_exit[4.7,7.0;1,0.5;abort;OK]';
+   local formspec  = 'size[10,7]'..
+	'label[0,0.0;' .. minetest.colorize("#FFFF00", "Area information and management") .. ']'
 
    -- general information about the area
    formspec = formspec..
-	'label[0.5,1.0;This is area number ]'..
-        'label[4.7,1.0;'..tostring( id )..']'..
+	'label[0,0.8;Area number: ' ..minetest.colorize("#FFFF00", tostring( id ))..']'..
 
-	'label[0.5,1.5;The area is called ]'..
-        'label[4.7,1.5;'..minetest.formspec_escape( this_area.name or '-not set-')..']'..
+	'label[0,1.3;Area name: ' ..minetest.colorize("#FFFF00",
+        minetest.formspec_escape( this_area.name or '-not set-'))..']'..
 
-	'label[0.5,2.0;It is owned by ]'..
-        'label[4.7,2.0;'..minetest.formspec_escape( this_area.owner)..']';
+	'label[0,1.8;Owned by: ' ..minetest.colorize("#FFFF00",
+        minetest.formspec_escape( this_area.owner))..']';
 
 
    -- these functions are only available to the owner of the area
    if( is_owner ) then
       formspec = formspec..
-        'button_exit[8.0,0.0;2,0.5;change_owner;Change owner]'..
-        'button_exit[8.0,1.0;2,0.5;delete;Delete]'..
-        'button_exit[8.0,1.5;2,0.5;rename;Rename]'..
-        'button_exit[8.0,2.0;2,0.5;list_player_areas;My areas]';
+        'button_exit[7,0.0;3,1;change_owner;Change owner]'..
+        'button_exit[7,0.8;3,1;delete;Delete area]'..
+        'button_exit[7.0,1.6;3,1;rename;Rename area]'..
+        'button_exit[7.0,6.4;3,1;list_player_areas;My areas]';
 
    -- subareas of own areas can be deleted (but not renamed)
    elseif( not( is_owner )
@@ -280,28 +278,27 @@ markers.get_area_desc_formspec = function( id, player, pos )
       and areas.areas[ this_area.parent ].owner == pname ) then
  
       formspec = formspec..
-        'button_exit[8.0,1.0;2,0.5;delete;Delete subarea]'..
-        'button_exit[8.0,2.0;2,0.5;list_player_areas;Player\'s areas]';
+        'button_exit[7.0,1.0;2,0.5;delete;Delete subarea]'..
+        'button_exit[7.0,2.0;2,0.5;list_player_areas;Player\'s areas]';
 
    else
       formspec = formspec..
-        'button_exit[8.0,2.0;2,0.5;list_player_areas;Player\'s areas]';
+        'button_exit[7.0,2.0;2,0.5;list_player_areas;Player\'s areas]';
    end
 
 
    -- players with the areas priv get an extra menu
-   if( minetest.check_player_privs(pname, {areas=true})) then
+   if not is_owner and ( minetest.check_player_privs(pname, {areas=true})) then
       formspec = formspec..
-              'label[8.0,6.0;Admin commands:]'..
-        'button_exit[8.0,6.5;2,0.5;change_owner;Change owner]'..
-        'button_exit[8.0,7.0;2,0.5;delete;Delete]'..
-        'button_exit[8.0,7.5;2,0.5;rename;Rename]';
+        'button_exit[7.0,0;3,1;change_owner;Change owner]'..
+        'button_exit[7.0,0.8;3,1;delete;Delete]'..
+        'button_exit[7.0,1.6;3,1;rename;Rename]';
    end
 
 
    -- show subowners and areas with the same coordinates
    formspec = formspec..
-	'label[0.5,2.5;Further owners of the entire area:]';
+	'label[0,2.3;Sub-owners:]';
    local further_owners = {};
    for i, area in pairs(areas.areas) do
       if( i ~= id and
@@ -320,15 +317,15 @@ markers.get_area_desc_formspec = function( id, player, pos )
       -- deleting subowners is done by deleting their areas
       if( is_owner ) then
          formspec = formspec..
-	        'button_exit[8.0,2.5;2,0.5;add_owner;Add]';
+	        'button_exit[7.0,4.8;3,1;add_owner;Add owner]';
       end
    else
       formspec = formspec..
-        'label[4.7,2.5;-none-]';
+        'label[2,2.3;-none-]';
  
       if( is_owner ) then
          formspec = formspec..
-		'button_exit[8.0,2.5;2,0.5;add_owner;Add]';
+		'button_exit[7.0,4.8;3,1;add_owner;Add owner]';
       end
    end  
 
@@ -336,7 +333,7 @@ markers.get_area_desc_formspec = function( id, player, pos )
    -- is the area a subarea?
    if( this_area.parent ) then
       formspec = formspec..
-	'label[0.5,3.0;This area is a sub-area of area]'..
+	'label[0,3.0;This area is a sub-area of area]'..
 	'label[4.7,3.0;'..minetest.formspec_escape( areas.areas[ this_area.parent ].name..' ['..this_area.parent..']' )..']'..
         'button_exit[8.0,3.0;2,0.5;show_parent;Show main area]';
    end
@@ -354,12 +351,11 @@ markers.get_area_desc_formspec = function( id, player, pos )
    if( #sub_areas > 0 ) then
 
       formspec = formspec..
-	'label[0.5,4.0;Number of defined subareas:]'..
-        'label[4.7,4.0;'..tostring( #sub_areas )..']'..
+	'label[0.5,2.8;Number of defined subareas: ' ..tostring( #sub_areas )..']'..
         'button_exit[8.0,4.0;2,0.5;list_subareas;List subareas]';
    else
       formspec = formspec..
-	'label[0.5,4.0;There are no subareas defined.]';
+	'label[0,2.8;There are no subareas defined.]';
    end
 
 
@@ -369,16 +365,19 @@ markers.get_area_desc_formspec = function( id, player, pos )
    local length_z = (math.abs( this_area.pos2.z - this_area.pos1.z )+1);
 
    formspec = formspec..
-               'label[0.5,4.5;The area extends from]'..
-               'label[4.7,4.5;'..minetest.pos_to_string( this_area.pos1 )..' to '..minetest.pos_to_string( this_area.pos2 )..'.]'..
-               'label[4.7,4.75;It spans '..tostring( length_x )..
+               'label[0,3.3;The area extends from '..
+                      minetest.colorize("#FFFF00", minetest.pos_to_string( this_area.pos1 ))..
+                      ' to '..
+                      minetest.colorize("#FFFF00", minetest.pos_to_string( this_area.pos2 ))..'.]'..
+               'label[0,3.8;It spans '..tostring( length_x )..
                                    ' x '..tostring( length_z )..
-                                   ' = '..tostring( length_x * length_z )..
-                                   ' m^2. Height: '..tostring( length_y )..' m.]';
+                                   ' m = '..tostring( length_x * length_z )..
+                                   ' m². Height: '..tostring( length_y )..' m.]';
 
 
    formspec = formspec..
-               markers.show_compass_marker( 2.0, 7.0, true, pos, this_area.pos1, this_area.pos2 );
+               markers.show_compass_marker( 2.0, 6.0, true, pos, this_area.pos1, this_area.pos2 ) ..
+               default.gui_bg_img
 
 -- TODO: buy / sell button
 
@@ -419,17 +418,16 @@ markers.show_compass_marker = function( col_offset, row_offset, with_text, pos, 
  
       if( with_text ) then
          formspec = formspec..
-		'label[0.5,5.5;Dimensions of the area in relation to..]'..
--- TODO: check if there is a marker; else write 'position you clicked on'
-		'label[4.7,5.5;the marker at '..minetest.pos_to_string( pos )..':]'..
-		'button_exit[8.0,5.5;2,0.5;list_areas_at;Local areas]';
+		'label[0,4.5;Area dimensions from marker position at '..
+        minetest.colorize("#FFFF00", minetest.pos_to_string( pos ))..':]'..
+		'button_exit[7.0,5.6;3,1;list_areas_at;Local areas]';
       end
       formspec = formspec..
-		'image['..col_offset..','..row_offset..';1,1;markers_stone.png]'..
-		'label['..(col_offset-0.8)..','..(row_offset+0.05)..';'..tostring( pos.x - pos1.x         )..' m W]'..
-		'label['..(col_offset+1.0)..','..(row_offset+0.05)..';'..tostring(         pos2.x - pos.x )..' m E]'..
-		'label['..(col_offset+0.1)..','..(row_offset+0.80)..';'..tostring( pos.z - pos1.z         )..' m S]'..
-		'label['..(col_offset+0.1)..','..(row_offset-0.80)..';'..tostring(         pos2.z - pos.z )..' m N]';
+		'image['..(col_offset+0.1)..','..(row_offset-0.1)..';1,1;markers_stone.png]'..
+		'label['..(col_offset-0.8)..','..(row_offset+0.05)..';'..tostring( pos.x - pos1.x         )..' m. ' .. minetest.colorize("#FFFF00", "W") .. ']'..
+		'label['..(col_offset+1.0)..','..(row_offset+0.05)..';'..tostring(         pos2.x - pos.x )..' m. ' .. minetest.colorize("#FFFF00", "E") .. ']'..
+		'label['..(col_offset+0.1)..','..(row_offset+0.80)..';'..tostring( pos.z - pos1.z         )..' m. ' .. minetest.colorize("#FFFF00", "S") .. ']'..
+		'label['..(col_offset+0.1)..','..(row_offset-0.70)..';'..tostring(         pos2.z - pos.z )..' m. ' .. minetest.colorize("#FFFF00", "N") .. ']';
 
    -- else show how far the area is away
    else
@@ -456,17 +454,16 @@ markers.show_compass_marker = function( col_offset, row_offset, with_text, pos, 
 
       if( with_text ) then
          formspec = formspec..
-		'label[0.5,5.5;Position of the area in relation to..]'..
--- TODO: check if there is a marker; else write 'position you clicked on'
-		'label[4.7,5.5;the marker at '..minetest.pos_to_string( pos )..':]'..
-		'button_exit[8.0,5.5;2,0.5;list_areas_at;Local areas]';
+		'label[0,4.5;Position of the area, from marker position at '..
+        minetest.colorize("#FFFF00", minetest.pos_to_string( pos ))..':]'..
+		'button_exit[7.0,5.6;3,1;list_areas_at;Local areas]';
       end
       formspec = formspec..
-		'image['..col_offset..','..row_offset..';1,1;compass_side_top.png]'..
-		'label['..(col_offset-0.8)..','..(row_offset+0.05)..';'..starts_west..']'..
-		'label['..(col_offset+1.0)..','..(row_offset+0.05)..';'..starts_east..']'..
-		'label['..(col_offset+0.1)..','..(row_offset-0.80)..';'..starts_north..']'..
-		'label['..(col_offset+0.1)..','..(row_offset+0.80)..';'..starts_south..']';
+		'image['..(col_offset+0.1)..','..(row_offset-0.10)..';1,1;compass_side_top.png]'..
+		'label['..(col_offset-0.8)..','..(row_offset+0.05)..';'..starts_west:sub(1,-2) .. minetest.colorize("#FFFF00", starts_west:sub(-1))..']'..
+		'label['..(col_offset+1.0)..','..(row_offset+0.05)..';'..starts_east:sub(1,-2) .. minetest.colorize("#FFFF00", starts_east:sub(-1))..']'..
+		'label['..(col_offset+0.1)..','..(row_offset-0.80)..';'..starts_north:sub(1,-2) .. minetest.colorize("#FFFF00", starts_north:sub(-1))..']'..
+		'label['..(col_offset+0.1)..','..(row_offset+0.80)..';'..starts_south:sub(1,-2) .. minetest.colorize("#FFFF00", starts_south:sub(-1))..']'
    end
  
    return formspec;
@@ -629,8 +626,9 @@ markers.form_input_handler_areas = function( player, formname, fields)
       else
 
          formspec = 'field[rename_new_name;Enter new name for area:;'..minetest.formspec_escape( area.name )..']';
-         formspec = 'field[delete_confirm;'..minetest.formspec_escape( 'Really delete area \"'..area.name..
-                            '\" (owned by '..area.owner..')? Confirm with YES:')..';-type yes in capitals to confirm-]';
+         formspec = 'field[delete_confirm;'..minetest.formspec_escape( 'Delete area '..
+              minetest.colorize("#FFFF00", area.name)..
+              ' (owned by '..minetest.colorize("#FFFF00", area.owner)..')?')..';-type YES (in capitals) to confirm-]';
 
       end
 
@@ -797,10 +795,11 @@ markers.show_marker_stone_formspec = function( player, pos )
    -- no areas found; display error message and selection menu
    if(     #found_areas < 1 ) then
 
-      formspec = 'size[4,3]'..
- 		'label[0.5,0.5;This position is not protected.]'..
-		     'button[1.0,1.5;2,0.5;list_main_areas;List all main areas]'..
-		'button_exit[3.0,1.5;1,0.5;abort;OK]';
+      formspec = 'size[4,2]'..
+ 		'label[0,0;This position is not protected.]'..
+		'button[0,0.8;4,0.5;list_main_areas;List all main areas]'..
+		'button_exit[1.45,1.7;1.2,0.5;abort;OK]' ..
+    default.gui_bg_img
  
    -- found exactly one areaa - display it
    elseif( #found_areas == 1 ) then

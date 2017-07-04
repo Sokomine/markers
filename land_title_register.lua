@@ -9,6 +9,7 @@ minetest.register_tool( "markers:land_title_register",
     wield_scale = {x=1,y=1,z=1},
     stack_max = 1, -- there is no need to have more than one
     liquids_pointable = true, -- ground with only water on can be owned as well
+--[[
     -- the tool_capabilities are completely irrelevant here - no need to dig
     tool_capabilities = {
         full_punch_interval = 1.0,
@@ -19,6 +20,7 @@ minetest.register_tool( "markers:land_title_register",
             choppy={times={[3]=0.90}, maxwear=0.05, maxlevel=0}
         }
     },
+--]]
     node_placement_prediction = nil,
 
     on_place = function(itemstack, placer, pointed_thing)

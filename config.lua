@@ -19,12 +19,14 @@ markers.MAX_SIZE     = 4096; -- 64m * 64m= 4096 m^2
 -- set to something >60000 in order to view all areas; set to a smaller
 -- value (i.e. 500) on multiplayer servers with many protected areas
 
-if(     #areas.areas > 1000 ) then
-	markers.AREA_RANGE   = 100;
-elseif( #areas.areas > 100 ) then
-	markers.AREA_RANGE   = 1000;
-else
-	markers.AREA_RANGE   = 100000;
+if markers.mod_areas_present then
+	if(     #areas.areas > 1000 ) then
+		markers.AREA_RANGE   = 100;
+	elseif( #areas.areas > 100 ) then
+		markers.AREA_RANGE   = 1000;
+	else
+		markers.AREA_RANGE   = 100000;
+	end
 end
 
 -- for most cases, the default values ought to work

@@ -94,7 +94,11 @@ function markers:player_can_add_region(pos1, pos2, name)
 	if not minetest.check_player_privs(name, { region_mark = true }) then 
 		return false, "You dont have the privileg 'region_mark' "
 	end
-	if raz:get_area_by_pos1_pos2(pos1, pos2) ~= nil then 
+	local err = raz:player_can_mark_region(pos1, pos2, name)
+	minetest.log("action", "[" .. markers.modname .. "] markers:player_can_add_region(pos1, pos2, name) err = "..tostring(err) )
+	if err ~= true then
+--	if raz:get_area_by_pos1_pos2(pos1, pos2) ~= nil then 
+		raz:msg_handling(err, name) --  message and error handling
 		return false, "The pos1,pos2 are in an other region! - You can not mark the region."
 	end
 

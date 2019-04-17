@@ -27,7 +27,7 @@ markers.mod_raz_present = minetest.get_modpath("raz")
 if markers.mod_areas_present and markers.mod_raz_present then
 	minetest.log("error", "[" .. markers.modname .. "] areas and raz is installed - what shall be used!!!!!!")
 elseif markers.mod_areas_present and not markers.mod_raz_present then
-		dofile(modpath.."/areas.lua")
+		dofile(markers.modpath.."/areas.lua")
 		minetest.log("action", "[" .. markers.modname .. "] areas is installed - load areas.lua")
 elseif markers.mod_raz_present and not markers.mod_areas_present then
 		dofile(markers.modpath.."/raz.lua")

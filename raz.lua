@@ -1,3 +1,17 @@
+
+-- this is here becaue of the teleport mod
+areas = {}
+
+function areas:canInteract(target_coords, player)
+	return raz:can_interact(pos, name)
+end
+
+function areas:getNodeOwners(target_coords)
+	local can_interact, owner = raz:can_interact(pos, name)
+	return owner
+end
+
+
 --+++++++++++++++++++++++++++++++++++++++
 --
 -- convert_to_areas
@@ -95,9 +109,8 @@ function markers:player_can_add_region(pos1, pos2, name)
 		return false, "You dont have the privileg 'region_mark' "
 	end
 	local err = raz:player_can_mark_region(pos1, pos2, name)
-	minetest.log("action", "[" .. markers.modname .. "] markers:player_can_add_region(pos1, pos2, name) err = "..tostring(err) )
+	--minetest.log("action", "[" .. markers.modname .. "] markers:player_can_add_region(pos1, pos2, name) err = "..tostring(err) )
 	if err ~= true then
---	if raz:get_area_by_pos1_pos2(pos1, pos2) ~= nil then 
 		raz:msg_handling(err, name) --  message and error handling
 		return false, "The pos1,pos2 are in an other region! - You can not mark the region."
 	end
@@ -129,7 +142,9 @@ markers.marker_on_receive_fields = function(pos, formname, fields, sender)
 
 	-- do not protect areas twice
 	local area = markers.get_area_by_pos1_pos2( coords[1], coords[2] );
-	if( area ) then
+	-- check if this region has marked as building plot, then it can be set
+	
+	if raz:region_is_plot( coords[1], coords[2] ) == false then
 		minetest.log("action", "[" .. markers.modname .. "] markers.marker_on_receive_fields area = :"..tostring(area) )
 		minetest.chat_send_player( name, 'This area is already protected.');
 		return;
@@ -190,6 +205,7 @@ markers.marker_on_receive_fields = function(pos, formname, fields, sender)
 										  " endpos="  ..minetest.pos_to_string(pos2));
 
 	local canAdd, errMsg = markers:player_can_add_region(pos1, pos2, name)
+	check_region_plot = raz:region_is_plot( coords[1], coords[2] )
 	if canAdd == false then
 		minetest.chat_send_player(name, "You can't protect that area: "..tostring(errMsg))
 		minetest.show_formspec( name, "markers:mark", markers.get_marker_formspec(sender, pos, errMsg));
@@ -199,7 +215,7 @@ markers.marker_on_receive_fields = function(pos, formname, fields, sender)
 	local data = raz:create_data(name,fields['set_area_name'],true)
 	local id = raz:set_region(pos1,pos2,data)
 	minetest.chat_send_player(name, "Area protected. ID: "..tostring(id))
-
+	
 	minetest.show_formspec( name, "markers:mark", markers.get_marker_formspec(sender, pos, nil));
 	
 end
@@ -213,11 +229,6 @@ if not vector.interpolate then
 		z = pos1.z + (pos2.z - pos1.z) * factor}
 	 end
 end
-
--- taken from mobf
---local COLOR_RED	= "#FF0000";
---local COLOR_GREEN = "#00FF00";
---local COLOR_WHITE = "#FFFFFF";
 
 
 -- we need to store which list we present to which player
@@ -392,7 +403,7 @@ end
 
 -- shows a formspec with information about a particular area
 -- pos is the position of the marker stone or place where the player clicked
--- with the land title register; it is used for relative display of coordinates
+-- with the land title register; can used for relative display of coordinates
 markers.get_area_desc_formspec = function( id, player, pos )
 
 	if( not id  or not raz.raz_store:get_area( id )) then
@@ -947,4 +958,113 @@ markers.show_marker_stone_formspec = function( player, pos )
 	end
 
 	minetest.show_formspec( player:get_player_name(), "markers:info", formspec );
+end
+
+
+markers.get_marker_formspec = function(player, pos, error_msg)
+   local formspec = "";
+
+   local meta  = minetest.get_meta( pos );
+   local owner = meta:get_string( 'owner' );
+
+   local name  = player:get_player_name();
+
+   local formspec_info = "size[6,4]"..
+             "button_exit[2,2.5;1,0.5;abort;OK]"..
+             "textarea[1,1;4,2;info;Information;";
+   if( owner ~= nil and owner ~= '' and owner ~= name ) then
+      return formspec_info.."This marker\ncan only be used by\n"..tostring( owner )..", who\nplaced the markers.]";
+   end
+
+   if( not( markers.positions[ name ]) or #markers.positions[name]<1) then
+      return formspec_info.."Information about the positions\nof your other markers\ngot lost.\nPlease dig and place\nyour markers again!]";
+   end
+
+   local n = #markers.positions[ name ];
+
+	 if ( n < 2 ) then
+	   return formspec_info.."Please place 2 or more markers\n - at least one in each corner\n of your area first]";
+   end
+
+
+	 local coords={}
+	 coords[1],coords[2] = markers.get_box_from_markers(name)
+
+   -- save data
+      meta:set_string( 'coords', minetest.serialize( coords ) );
+
+   if( not( coords ) or #coords < 2 or not( coords[1] ) or not( coords[2] )) then
+      return formspec_info.."Error in markers.]";
+   end
+
+   -- the coordinates are set; we may present an input form now
+
+    -- has the area already been defined?
+    local area = markers.get_area_by_pos1_pos2( coords[1], coords[2] );
+	
+    local size = (math.abs( coords[1].x - coords[2].x )+1)
+               * (math.abs( coords[1].z - coords[2].z )+1);
+
+    -- check if area is too large
+    if( markers.MAX_SIZE < size ) then
+       return formspec_info.."Error: You can only protect\nareas of up to "..tostring( markers.MAX_SIZE ).."m^2.\n"..
+                             "Your marked area is "..tostring( size ).." m^2 large.]";
+    end
+
+    local formspec = 'size[10,7]'..
+               'label[0.5,1;The area you marked extends from]'..
+               'label[4.7,1;'..minetest.pos_to_string( coords[ 1 ] )..' to '..minetest.pos_to_string( coords[ 2 ] )..'.]'..
+               'label[4.7,1.5;It spans '..tostring( math.abs( coords[1].x - coords[2].x )+1 )..
+                               ' x '..tostring( math.abs( coords[1].z - coords[2].z )+1 )..
+                               ' = '..tostring( size )..' m^2.]';
+
+    -- display the error message (if there is any)
+    if( error_msg ~= nil ) then
+       formspec = formspec..
+                    'label[0.5,0.0;Error: ]'..
+                    'textarea[5.0,0;4,1.5;info;;'..error_msg..']';
+    end
+
+
+	-- if this area exists
+	-- case 1 the region has the attribut "plot" == true then setting a new area is possible
+	-- case 2 the region has the attribut "plot" == false	
+	local can_set_region = false
+    if( area and area['id'] ) then
+		if not raz:region_is_plot( coords[1], coords[2] ) == false then
+			can_set_region = true
+		end
+	end
+	if can_set_region == false then
+       formspec =   formspec..
+                    'label[0.5,2.0;This is area number ]'..
+                    'label[4.7,2.0;'..tostring( area['id'] )..'.]'..
+                    'label[0.5,2.5;It is owned by ]'..
+                    'label[4.7,2.5;'..tostring( area['owner'] )..'.]'..
+                    'label[0.5,3.0;The area is called ]'..
+                    'label[4.7,3.0;'..tostring( area['name'] )..'.]'..
+                    "button_exit[2,6.0;2,0.5;abort;OK]";
+    else
+       formspec =   formspec..
+--                    'label[0.5,2.0;Buying this area will cost you ]'..
+--                    'label[4.7,2.0;'..markers.calculate_area_price_text( coords[1], coords[2], name )..'.]'..
+
+                    'label[0.5,3.0;Your area ought to go..]'..
+                    'label[0.5,3.5;this many blocks up:]'..
+                    'field[5.0,4.0;1,0.5;add_height;;40]'..
+                    'label[6.0,3.5;(above '..coords[2].y..' )]'..
+
+                    'label[0.5,4.0;and this many blocks down:]'..
+                    'field[5.0,4.5;1,0.5;add_depth;;10]'..
+                    'label[6.0,4.0;(below '..coords[1].y..' )]'..
+
+                    'label[0.5,4.5;The area shall be named]'..
+                    'field[5.0,5.0;6,0.5;set_area_name;;please enter a name]'..
+
+                    "button_exit[2,6.0;2,0.5;abort;Abort]"..
+                    -- code the position in the "Buy area" field
+                    "button_exit[6,6.0;2,0.5;"..minetest.pos_to_string(pos)..";Protect area]";
+    end
+
+   return formspec;
 end

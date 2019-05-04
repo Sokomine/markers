@@ -2,13 +2,24 @@
 -- this is here becaue of the teleport mod
 areas = {}
 
-function areas:canInteract(target_coords, player)
-	return raz:can_interact(pos, name)
+function areas:canInteract(pos, name)
+	local can_interact = raz:can_interact(pos, name)
+	--minetest.log("action", "[" .. raz.modname .. "] areas:canInteract(pos, name) pos "..minetest.serialize(pos) )
+	--minetest.log("action", "[" .. raz.modname .. "] areas:canInteract(pos, name) name "..tostring(name) )
+	--minetest.log("action", "[" .. raz.modname .. "] areas:canInteract(pos, name) can_interact "..tostring(can_interact) )  
+  
+	return can_interact
 end
 
-function areas:getNodeOwners(target_coords)
-	local can_interact, owner = raz:can_interact(pos, name)
-	return owner
+function areas:getNodeOwners(pos)
+		
+	local owner = raz:get_owner_for_pos(pos)
+	-- owners must be a table
+	if owner ~= nil then 
+		local owners = raz:convert_string_to_table(owner, ",")
+		return owners
+	end
+	return {}
 end
 
 
@@ -261,11 +272,14 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
 		-- title would be too long for a label
 		title  = 'All areas which contain position..';
 		tlabel = '<'..minetest.pos_to_string( mode_data )..'>:';
-		id_list = raz.raz_store:get_areas_for_pos(pos)
-
-
+		local temp_id_list = ( raz.raz_store:get_areas_for_pos(pos) )
+		for k,v in next,temp_id_list,nil  do
+			--minetest.log("error", "[" .. markers.modname .. "] {markers.get_area_list_formspec} mode= pos: k,v = "..tostring(k).." ,"..tostring(v) )
+			table.insert( id_list, k );
+		end
 	-- expects a playername in mode_data
 	elseif( mode=='player' ) then
+		--minetest.log("error", "[" .. markers.modname .. "] {markers.get_area_list_formspec} playername in mode_data = "..tostring(mode_data) )
 
 		title  = 'All areas owned by player..';
 		tlabel = '<'..tostring( mode_data )..'>:';
@@ -287,16 +301,16 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
 		minetest.log("error", "[" .. markers.modname .. "] {markers.get_area_list_formspec} there are no subareas in raz-mod.")
 
 
-	-- show only regions that do have parent attribute = true
+	-- show only regions that do have plot attribute = true
 	elseif( mode=='main_areas' ) then
-		title  = 'All parent region withhin '..tostring( markers.AREA_RANGE )..' m:';
-		tlabel = '*all parent regions *';
+		title  = 'All building plots withhin '..tostring( markers.AREA_RANGE )..' m:';
+		tlabel = '*all plots regions *';
 		local counter = 0
 		local data = {}
 		while raz.raz_store:get_area(counter) do
 			data = raz:get_region_datatable(counter)
 
-			  if( data.parent == true ) then
+			  if( data.plot == true ) then
 				  table.insert( id_list, counter );
 			  end
 			counter = counter + 1
@@ -321,6 +335,7 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
 		vector.distance(vector.interpolate(raz.raz_store:get_area(b).min, raz.raz_store:get_area(b).max, 0.5), ppos)
 	end
 	table.sort(id_list, nearsorter)
+	--minetest.log("error", "[" .. markers.modname .. "] {markers.get_area_list_formspec} sort id_list: id_list = "..minetest.serialize(id_list) )
 
 	local formspec = 'size[10,9]';
 
@@ -380,7 +395,7 @@ markers.get_area_list_formspec = function(ppos, player, mode, pos, mode_data, se
 	end
 
 	formspec = formspec..
-					'button[8.0,8.5;2,0.5;list_main_areas;List all main areas]';
+					'button[8.0,8.5;2,0.5;list_main_areas;Own regions]';
 
 	-- we need to remember especially the id_list - else it would be impossible to know what the
 	-- player selected
@@ -796,7 +811,8 @@ markers.form_input_handler_areas = function( player, formname, fields)
 	-- list_main_areas
 	elseif( fields.list_main_areas ) then
 
-	  formspec = markers.get_area_list_formspec(ppos, player, 'main_areas', menu_data.pos, nil, nil );
+		--formspec = markers.get_area_list_formspec(ppos, player, 'main_areas', menu_data.pos, nil, nil );
+		formspec = markers.get_area_list_formspec(ppos, player, 'player', menu_data.pos, player:get_player_name(), nil );
 
 		  
 	-----------------------------------------------------------------------
@@ -893,7 +909,7 @@ markers.show_marker_stone_formspec = function( player, pos )
 
 		formspec = 'size[4,3]'..
  			'label[0.5,0.5;This position is not protected.]'..
-			'button[1.0,1.5;2,0.5;list_main_areas;List all main areas]'..
+			'button[1.0,1.5;2,0.5;list_main_areas;Own regions]'..
 			'button_exit[3.0,1.5;1,0.5;abort;OK]';
  
 	-- found exactly one areaa - display it
@@ -1000,7 +1016,8 @@ markers.get_marker_formspec = function(player, pos, error_msg)
    -- the coordinates are set; we may present an input form now
 
     -- has the area already been defined?
-    local area = markers.get_area_by_pos1_pos2( coords[1], coords[2] );
+    local area = markers.get_area_by_pos1_pos2( coords[1], coords[2] )
+	
 	
     local size = (math.abs( coords[1].x - coords[2].x )+1)
                * (math.abs( coords[1].z - coords[2].z )+1);
@@ -1034,6 +1051,15 @@ markers.get_marker_formspec = function(player, pos, error_msg)
 		if not raz:region_is_plot( coords[1], coords[2] ) == false then
 			can_set_region = true
 		end
+	end
+
+	minetest.log("action", "[" .. raz.modname .. "] markers.get_marker_formspec - can_set_region = "..tostring(can_set_region) )
+	minetest.log("action", "[" .. raz.modname .. "] markers.get_marker_formspec - area = "..tostring(area) )
+	minetest.log("action", "[" .. raz.modname .. "] markers.get_marker_formspec - coords[1]  = "..minetest.serialize(coords[1]) )
+	minetest.log("action", "[" .. raz.modname .. "] markers.get_marker_formspec - coords[2]  = "..minetest.serialize(coords[1]) )
+	-- if there is no region then it can be placed 
+	if area == nil then
+		can_set_region = true
 	end
 	if can_set_region == false then
        formspec =   formspec..

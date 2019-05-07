@@ -1,50 +1,54 @@
 
--- markers are useful for measuring distances and for marking areas
+-- markers are useful for measuring distances and for marking areas, regions or zones
+-- it should work with areas and raz
 -- markers are protected from digging by other players for one day
 -- (the protection for the *marker* auto-expires then, and it can be digged)
 
-markers = {}
-
-dofile(minetest.get_modpath("markers").."/config.lua");
-dofile(minetest.get_modpath("markers").."/areas.lua");
-dofile(minetest.get_modpath("markers").."/marker_stone.lua");
-dofile(minetest.get_modpath("markers").."/land_title_register.lua");
+markers = {
 
 
--- returns the first area found
-markers.get_area_by_pos1_pos2 = function(pos1, pos2)
-   for id, area in pairs(areas.areas) do
+-- Paths and infos to the mod
+	worlddir = minetest.get_worldpath(),
+	modname = minetest.get_current_modname(),
+	modpath = minetest.get_modpath(minetest.get_current_modname()),
+	mod_areas_present = nil,
+	mod_raz_present = nil,
+}
 
-      if( ((area.pos1.x == pos1.x and area.pos1.z == pos1.z )
-        or (area.pos1.x == pos1.x and area.pos1.z == pos2.z )
-        or (area.pos1.x == pos2.x and area.pos1.z == pos1.z )
-        or (area.pos1.x == pos2.x and area.pos1.z == pos2.z ))
 
-       and((area.pos2.x == pos1.x and area.pos2.z == pos1.z )
-        or (area.pos2.x == pos1.x and area.pos2.z == pos2.z )
-        or (area.pos2.x == pos2.x and area.pos2.z == pos1.z )
-        or (area.pos2.x == pos2.x and area.pos2.z == pos2.z ))) then
+-- load the .luas
+dofile(markers.modpath.."/config.lua")
+dofile(markers.modpath.."/functions.lua")
 
-          -- at least pos1 needs to have a hight value that fits in
-          if(  (area.pos1.y <= pos1.y and area.pos2.y >= pos1.y)
-            or (area.pos1.y >= pos1.y and area.pos2.y <= pos1.y)) then
+-- check if areas or raz is installed
+markers.mod_areas_present = minetest.get_modpath("areas")
+markers.mod_raz_present = minetest.get_modpath("raz")
 
-             local found = area;
-             found[ 'id' ] = id;
-             return found;
-
-          end
-      end
-   end
-   return nil;
+if markers.mod_areas_present and markers.mod_raz_present then
+	minetest.log("error", "[" .. markers.modname .. "] areas and raz is installed - what shall be used!!!!!!")
+elseif markers.mod_areas_present and not markers.mod_raz_present then
+		dofile(markers.modpath.."/areas.lua")
+		minetest.log("action", "[" .. markers.modname .. "] areas is installed - load areas.lua")
+elseif markers.mod_raz_present and not markers.mod_areas_present then
+		dofile(markers.modpath.."/raz.lua")
+		minetest.log("action", "[" .. markers.modname .. "] raz is installed - load raz.lua")
+else
+	minetest.log("error", "[" .. markers.modname .. "] I fond no installed version of areas or raz - what shall be used!!!!!!")
 end
 
 
+dofile(markers.modpath.."/marker_stone.lua")
+dofile(markers.modpath.."/land_title_register.lua")
 
 
 
 
--- this function is supposed to return a text string describing the price of the land between po1 and pos2
+
+
+
+
+
+-- this function is supposed to return a text string describing the price of the land between pos1 and pos2
 -- You can return somethiing like "for free" or "the promise to build anything good" as well as any
 -- real prices in credits or materials - it's really just a text here.
 -- Make sure you do not charge the player more than what you ask here.
@@ -238,204 +242,11 @@ end --get_box_from_markers
 
 
 
-markers.get_marker_formspec = function(player, pos, error_msg)
-   local formspec = "";
-
-   local meta  = minetest.get_meta( pos );
-   local owner = meta:get_string( 'owner' );
-
-   local name  = player:get_player_name();
-
-   local formspec_info = "size[6,4]"..
-             "button_exit[2,2.5;1,0.5;abort;OK]"..
-             "textarea[1,1;4,2;info;Information;";
-   if( owner ~= nil and owner ~= '' and owner ~= name ) then
-      return formspec_info.."This marker\ncan only be used by\n"..tostring( owner )..", who\nplaced the markers.]";
-   end
-
-   if( not( markers.positions[ name ]) or #markers.positions[name]<1) then
-      return formspec_info.."Information about the positions\nof your other markers\ngot lost.\nPlease dig and place\nyour markers again!]";
-   end
-
-   local n = #markers.positions[ name ];
-
-	 if ( n < 2 ) then
-	   return formspec_info.."Please place 2 or more markers\n - at least one in each corner\n of your area first]";
-   end
-
-
-	 local coords={}
-	 coords[1],coords[2] = markers.get_box_from_markers(name)
-
-   -- save data
-      meta:set_string( 'coords', minetest.serialize( coords ) );
-
-   if( not( coords ) or #coords < 2 or not( coords[1] ) or not( coords[2] )) then
-      return formspec_info.."Error in markers.]";
-   end
-
-   -- the coordinates are set; we may present an input form now
-
-    -- has the area already been defined?
-    local area = markers.get_area_by_pos1_pos2( coords[1], coords[2] );
-
-
-    local size = (math.abs( coords[1].x - coords[2].x )+1)
-               * (math.abs( coords[1].z - coords[2].z )+1);
-
-    -- check if area is too large
-    if( markers.MAX_SIZE < size ) then
-       return formspec_info.."Error: You can only protect\nareas of up to "..tostring( markers.MAX_SIZE ).."m^2.\n"..
-                             "Your marked area is "..tostring( size ).." m^2 large.]";
-    end
-
-    local formspec = 'size[10,7]'..
-               'label[0.5,1;The area you marked extends from]'..
-               'label[4.7,1;'..minetest.pos_to_string( coords[ 1 ] )..' to '..minetest.pos_to_string( coords[ 2 ] )..'.]'..
-               'label[4.7,1.5;It spans '..tostring( math.abs( coords[1].x - coords[2].x )+1 )..
-                               ' x '..tostring( math.abs( coords[1].z - coords[2].z )+1 )..
-                               ' = '..tostring( size )..' m^2.]';
-
-    -- display the error message (if there is any)
-    if( error_msg ~= nil ) then
-       formspec = formspec..
-                    'label[0.5,0.0;Error: ]'..
-                    'textarea[5.0,0;4,1.5;info;;'..error_msg..']';
-    end
-
-    if( area and area['id'] ) then
-       formspec =   formspec..
-                    'label[0.5,2.0;This is area number ]'..
-                    'label[4.7,2.0;'..tostring( area['id'] )..'.]'..
-                    'label[0.5,2.5;It is owned by ]'..
-                    'label[4.7,2.5;'..tostring( area['owner'] )..'.]'..
-                    'label[0.5,3.0;The area is called ]'..
-                    'label[4.7,3.0;'..tostring( area['name'] )..'.]'..
-                    "button_exit[2,6.0;2,0.5;abort;OK]";
-    else
-       formspec =   formspec..
---                    'label[0.5,2.0;Buying this area will cost you ]'..
---                    'label[4.7,2.0;'..markers.calculate_area_price_text( coords[1], coords[2], name )..'.]'..
-
-                    'label[0.5,3.0;Your area ought to go..]'..
-                    'label[0.5,3.5;this many blocks up:]'..
-                    'field[5.0,4.0;1,0.5;add_height;;40]'..
-                    'label[6.0,3.5;(above '..coords[2].y..' )]'..
-
-                    'label[0.5,4.0;and this many blocks down:]'..
-                    'field[5.0,4.5;1,0.5;add_depth;;10]'..
-                    'label[6.0,4.0;(below '..coords[1].y..' )]'..
-
-                    'label[0.5,4.5;The area shall be named]'..
-                    'field[5.0,5.0;6,0.5;set_area_name;;please enter a name]'..
-
-                    "button_exit[2,6.0;2,0.5;abort;Abort]"..
-                    -- code the position in the "Buy area" field
-                    "button_exit[6,6.0;2,0.5;"..minetest.pos_to_string(pos)..";Protect area]";
-    end
-
-   return formspec;
-end
 
 
 
--- protect/buy an area
-markers.marker_on_receive_fields = function(pos, formname, fields, sender)
-
-   if( not( pos )) then
-      minetest.chat_send_player( name, 'Sorry, could not find the marker you where using to access this formspec.' );
-      return;
-   end
 
 
-   local meta  = minetest.get_meta( pos );
-
-   local name  = sender:get_player_name();
-
-   local coords_string = meta:get_string( 'coords' );
-   if( not( coords_string ) or coords_string == '' ) then
-      minetest.chat_send_player( name, 'Could not find marked area. Please dig and place your markers again!');
-      return;
-   end
-   local coords = minetest.deserialize( coords_string );
-
-
-   -- do not protect areas twice
-   local area = markers.get_area_by_pos1_pos2( coords[1], coords[2] );
-   if( area ) then
-
-      minetest.chat_send_player( name, 'This area is already protected.');
-      return;
-   end
-
-
-   -- check input
-   local add_height = tonumber( fields['add_height'] );
-   local add_depth  = tonumber( fields['add_depth']  );
-
-   local error_msg = '';
-   if(     not( add_height ) or add_height < 0 or add_height > markers.MAX_HEIGHT ) then
-      minetest.chat_send_player( name, 'Please enter a number between 0 and '..tostring( markers.MAX_HEIGHT )..
-		' in the field where the height of your area is requested. Your area will stretch that many blocks '..
-		'up into the sky from the position of this marker onward.');
-      error_msg = 'The height value\nhas to be larger than 0\nand smaller than '..tostring( markers.MAX_HEIGHT );
-
-   elseif( not( add_depth  ) or add_depth  < 0 or add_depth  > markers.MAX_HEIGHT ) then
-      minetest.chat_send_player( name, 'Please enter a number between 0 and '..tostring( markers.MAX_HEIGHT )..
-		' in the field where the depth of your area is requested. Your area will stretch that many blocks '..
-		'into the ground from the position of this marker onward.');
-      error_msg = 'The depth value\nhas to be larger than 0\nand smaller than '..tostring( markers.MAX_HEIGHT );
-
-   elseif( add_height + add_depth > markers.MAX_HEIGHT ) then
-      minetest.chat_send_player( name,  'Sorry, your area exceeds the height limit. Height and depth added have to '..
-		'be smaller than '..tostring( markers.MAX_HEIGHT )..'.');
-      error_msg = 'height + depth has to\nbe smaller than '..tostring( markers.MAX_HEIGHT )..'.'
-
-   elseif( not( fields[ 'set_area_name' ] ) or fields['set_area_name'] == 'please enter a name' ) then
-      minetest.chat_send_player( name, 'Please provide a name for your area, i.e. \"'..
-		tostring( name )..'s first house\" The name ought to describe what you intend to build here.');
-      error_msg = 'Please provide a\nname for your area!';
-
-   else
-      error_msg = nil;
-   end
-
-
-   if( error_msg ~= nil ) then
-      minetest.show_formspec( name, "markers:mark", markers.get_marker_formspec(sender, pos, error_msg));
-      return;
-   end
-
-
-   -- those coords lack the height component
-   local pos1 = coords[1];
-   local pos2 = coords[2];
-   -- apply height values from the formspeck
-   pos1.y = pos1.y - add_depth;
-   pos2.y = pos2.y + add_height;
-
-   pos1, pos2 = areas:sortPos( pos1, pos2 );
-
-   --minetest.chat_send_player('singleplayer','INPUT: '..minetest.serialize( pos1  )..' pos2: '..minetest.serialize( pos2 ));
-   minetest.log("action", "[markers] /protect invoked, owner="..name..
-                                " areaname="..fields['set_area_name']..
-                                " startpos="..minetest.pos_to_string(pos1)..
-                                " endpos="  ..minetest.pos_to_string(pos2));
-
-   local canAdd, errMsg = areas:canPlayerAddArea(pos1, pos2, name)
-   if not canAdd then
-      minetest.chat_send_player(name, "You can't protect that area: "..errMsg)
-      minetest.show_formspec( name, "markers:mark", markers.get_marker_formspec(sender, pos, errMsg));
-      return
-   end
-
-   local id = areas:add(name, fields['set_area_name'], pos1, pos2, nil)
-   areas:save()
-
-   minetest.chat_send_player(name, "Area protected. ID: "..id)
-
-   minetest.show_formspec( name, "markers:mark", markers.get_marker_formspec(sender, pos, nil));
-end
 
 
 

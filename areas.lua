@@ -478,7 +478,7 @@ end
 markers.form_input_handler_areas = function( player, formname, fields)
 
    local pname = player:get_player_name();
-   local ppos = player:getpos()
+   local ppos = player:get_pos()
 
    if( formname ~= "markers:info"
       or not( player )
